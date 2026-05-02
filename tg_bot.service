@@ -1,0 +1,15 @@
+[Unit]
+Description=Telegram Docker Backup Bot
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/bf
+ExecStart=/root/bf/venv/bin/python /root/bf/tg_bot.py
+Restart=always
+RestartSec=10
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
