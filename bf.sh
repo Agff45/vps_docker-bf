@@ -147,6 +147,17 @@ is_compose_container() {
     docker inspect "$container" 2>/dev/null | jq -e '.[0].Config.Labels["com.docker.compose.project"]' >/dev/null 2>&1
 }
 
+find_compose_file() {
+    local project_dir="$1"
+    for f in "docker-compose.yml" "docker-compose.yaml" "compose.yml" "compose.yaml"; do
+        if [ -f "$project_dir/$f" ]; then
+            echo "$f"
+            return 0
+        fi
+    done
+    return 1
+}
+
 backup_docker() {
     echo "🐳 正在扫描 Docker 容器..."
 
@@ -213,19 +224,21 @@ backup_docker() {
                 continue
             fi
 
-            if [ -f "$project_dir/docker-compose.yml" ]; then
+            local compose_file
+            compose_file=$(find_compose_file "$project_dir")
+            if [ -n "$compose_file" ]; then
                 echo "compose" > "${DOCKER_BACKUP_WORK}/backup_type_${project_name}"
                 echo "$project_dir" > "${DOCKER_BACKUP_WORK}/compose_path_${project_name}.txt"
                 tar -czf "${DOCKER_BACKUP_WORK}/compose_project_${project_name}.tar.gz" -C "$project_dir" . 2>/dev/null
 
                 echo "# docker-compose 恢复: $project_name" >> "$RESTORE_SCRIPT"
-                echo "cd \"$project_dir\" && docker compose up -d" >> "$RESTORE_SCRIPT"
+                echo "cd \"$project_dir\" && docker compose -f \"$compose_file\" up -d" >> "$RESTORE_SCRIPT"
 
                 PACKED_COMPOSE_PATHS["$project_dir"]=1
                 COMPOSE_COUNT=$((COMPOSE_COUNT + 1))
-                echo "   ✅ Compose 项目 [$project_name] 已打包: $project_dir"
+                echo "   ✅ Compose 项目 [$project_name] 已打包 ($compose_file): $project_dir"
             else
-                echo "   ⚠️ 未找到 docker-compose.yml，跳过容器 [$c]"
+                echo "   ⚠️ 未找到 compose 文件，跳过容器 [$c]"
                 SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
                 rm -f "$inspect_file"
                 continue
