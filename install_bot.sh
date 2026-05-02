@@ -19,12 +19,18 @@ echo "📁 创建安装目录..."
 mkdir -p "$INSTALL_DIR"
 
 # 2. 复制文件
-echo "📋 复制文件..."
-cp "$SCRIPT_DIR/bf.sh" "$INSTALL_DIR/"
-cp "$SCRIPT_DIR/tg_bot.py" "$INSTALL_DIR/"
-chmod +x "$INSTALL_DIR/bf.sh"
-chmod +x "$INSTALL_DIR/tg_bot.py"
-echo "   ✅ 已复制 bf.sh 和 tg_bot.py 到 $INSTALL_DIR"
+if [ "$SCRIPT_DIR" != "$INSTALL_DIR" ]; then
+    echo "📋 复制文件..."
+    cp "$SCRIPT_DIR/bf.sh" "$INSTALL_DIR/"
+    cp "$SCRIPT_DIR/tg_bot.py" "$INSTALL_DIR/"
+    chmod +x "$INSTALL_DIR/bf.sh"
+    chmod +x "$INSTALL_DIR/tg_bot.py"
+    echo "   ✅ 已复制 bf.sh 和 tg_bot.py 到 $INSTALL_DIR"
+else
+    echo "📋 检测到已在安装目录运行，跳过文件复制..."
+    chmod +x "$INSTALL_DIR/bf.sh" 2>/dev/null
+    chmod +x "$INSTALL_DIR/tg_bot.py" 2>/dev/null
+fi
 
 # 3. 安装 python3-venv (如果需要)
 echo ""
