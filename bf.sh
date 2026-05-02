@@ -2,7 +2,7 @@
 
 # ================= 配置区域 =================
 # --- 本地设置 ---
-BACKUP_DIR="/root/bf"
+BACKUP_DIR="/root/bf/VPS_Backups"
 
 # --- 网盘 1: OneDrive (rclone remote) ---
 REMOTE1_NAME="onedrive"

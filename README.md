@@ -1,18 +1,14 @@
-<p align="center">
-  <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Debian%20%7C%20Ubuntu%20%7C%20CentOS-blue?style=for-the-badge&logo=linux&logoColor=white" alt="Platform">
-  <img src="https://img.shields.io/badge/Made%20with-Bash-4EAA25?style=for-the-badge&logo=gnubash&logoColor=white" alt="Bash">
-  <img src="https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License">
-</p>
+![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Debian%20%7C%20Ubuntu%20%7C%20CentOS-blue?style=for-the-badge&logo=linux&logoColor=white)
 
-<br>
+![Bash](https://img.shields.io/badge/Made%20with-Bash-4EAA25?style=for-the-badge&logo=gnubash&logoColor=white)
 
-<p align="center">
-  <h1 align="center">🐳 Docker 备份系统</h1>
-  <p align="center"><i>一键备份 · 双网盘上传 · Telegram 远程管理</i></p>
-</p>
+![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white)
 
-<br>
+![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
+
+# 🐳 Docker 备份系统
+
+*一键备份 · 双网盘上传 · Telegram 远程管理*
 
 ---
 
@@ -20,25 +16,29 @@
 
 自动备份 VPS 上所有运行中的 **Docker 容器**（含 `docker-compose` 项目），支持上传到 **OneDrive** + **Google Drive** 双网盘，并可通过 **Telegram Bot** 进行远程管理。
 
-| 📄 文件 | 🎯 用途 |
-|:---------|:---------|
-| `bf.sh` | 备份脚本，支持 cron 定时或手动执行 |
-| `restore.sh` | 恢复脚本，从备份文件还原容器 |
-| `tg_bot.py` | Telegram 机器人，远程查看状态 / 触发备份 |
-| `tg_bot.service` | Bot 的 systemd 服务文件 |
-| `install_bot.sh` | 一键部署脚本 |
+
+| 📄 文件            | 🎯 用途                      |
+| ---------------- | -------------------------- |
+| `bf.sh`          | 备份脚本，支持 cron 定时或手动执行       |
+| `restore.sh`     | 恢复脚本，从备份文件还原容器             |
+| `tg_bot.py`      | Telegram 机器人，远程查看状态 / 触发备份 |
+| `tg_bot.service` | Bot 的 systemd 服务文件         |
+| `install_bot.sh` | 一键部署脚本                     |
+
 
 ---
 
 ## ⚙️ 一、环境要求
 
-| 项目 | 要求 |
-|:------|:------|
-| 🖥️ 操作系统 | Ubuntu 20.04+ / Debian 11+ / CentOS 7+ |
-| 🐳 Docker | 已安装并正常运行 |
-| 🔑 权限 | `root` |
-| 🔧 Git | 已安装 |
-| ☁️ 网盘 (可选) | rclone 已配置 remote |
+
+| 项目         | 要求                                     |
+| ---------- | -------------------------------------- |
+| 🖥️ 操作系统   | Ubuntu 20.04+ / Debian 11+ / CentOS 7+ |
+| 🐳 Docker  | 已安装并正常运行                               |
+| 🔑 权限      | `root`                                 |
+| 🔧 Git     | 已安装                                    |
+| ☁️ 网盘 (可选) | rclone 已配置 remote                      |
+
 
 ---
 
@@ -61,34 +61,33 @@ apt update && apt install -y jq tar gzip curl
 
 ### ☁️ 3. 配置 rclone 网盘 (可选)
 
-<details>
-<summary><b>📂 展开查看 rclone 配置步骤</b></summary>
+> 🚨 **重要：rclone 挂载名必须是 `onedrive` 和 `gdrive**`  
+> 脚本通过 remote 名称来识别网盘，请严格按照下面的命令创建，**不要随意改名**，否则网盘上传会失败。
+
+**📂 展开查看 rclone 配置步骤**
 
 ```bash
 # 安装 rclone
 curl https://rclone.org/install.sh | bash
 
-# 配置 OneDrive
-rclone config create onedrive onedrive
-
-# 配置 Google Drive
-rclone config create gdrive drive
+# 挂载onedrive和gdrive
+rclone config 
 
 # 验证配置
 rclone lsd onedrive:
 rclone lsd gdrive:
 ```
 
-</details>
+ 
 
-> 💡 **提示：** 如果不想用网盘，跳过此步骤即可。备份会保存在本地，网盘上传步骤会显示失败，不影响本地备份。
+> 💡 **提示：** 如果不想用网盘，跳过此步骤即可。备份会保存在 `VPS_Backups/` 目录，网盘上传步骤会显示失败，不影响本地备份。
 
 ### 🤖 4. 修改 Telegram 配置
 
 #### 📝 编辑 `bf.sh`
 
 ```bash
-vi /root/bf/bf.sh
+nano /root/bf/bf.sh
 ```
 
 修改第 22-23 行：
@@ -102,7 +101,7 @@ TG_ENABLED=true                   # 不需要通知就改 false
 #### 📝 编辑 `tg_bot.py`
 
 ```bash
-vi /root/bf/tg_bot.py
+nano /root/bf/tg_bot.py
 ```
 
 修改第 16-17 行：
@@ -147,12 +146,14 @@ journalctl -u tg_bot -f      # 实时查看日志
 
 ### ✔️ 8. 验证部署
 
-| ✅ 检查项 | 📟 命令 |
-|:-----------|:---------|
-| 手动备份 | `/root/bf/bf.sh` |
-| 备份文件 | `ls -lh /root/bf/docker_backup_*.tar.gz` |
-| Bot 状态 | `systemctl status tg_bot` |
-| 定时任务 | `crontab -l` |
+
+| ✅ 检查项  | 📟 命令                                                |
+| ------ | ---------------------------------------------------- |
+| 手动备份   | `/root/bf/bf.sh`                                     |
+| 备份文件   | `ls -lh /root/bf/VPS_Backups/docker_backup_*.tar.gz` |
+| Bot 状态 | `systemctl status tg_bot`                            |
+| 定时任务   | `crontab -l`                                         |
+
 
 ---
 
@@ -160,7 +161,7 @@ journalctl -u tg_bot -f      # 实时查看日志
 
 ```bash
 cd /root/bf
-./restore.sh docker_backup_YYYYMMDD_HHMMSS.tar.gz
+./restore.sh VPS_Backups/docker_backup_YYYYMMDD_HHMMSS.tar.gz
 ```
 
 恢复分 **3 步** 自动执行：
@@ -180,7 +181,7 @@ cd /root/bf
 ### `bf.sh` 配置项
 
 ```bash
-BACKUP_DIR="/root/bf"                 # 本地备份存放目录
+BACKUP_DIR="/root/bf/VPS_Backups"     # 本地备份存放目录
 LOCAL_KEEP_COUNT=1                    # 本地保留份数
 REMOTE1_NAME="onedrive"               # OneDrive rclone remote 名
 REMOTE1_DIR="VPS_Backups/Docker"      # OneDrive 目标路径
@@ -201,12 +202,14 @@ ALLOWED_CHAT_ID = 你的ID              # @userinfobot 获取
 
 ## 💬 五、Bot 命令
 
-| 🎮 命令 | 🧩 功能 |
-|:---------|:---------|
-| `/start` | 欢迎消息 |
+
+| 🎮 命令     | 🧩 功能           |
+| --------- | --------------- |
+| `/start`  | 欢迎消息            |
 | `/status` | 查看最近备份状态（含容器统计） |
-| `/run` | 手动触发备份（实时回显进度） |
-| `/help` | 帮助信息 |
+| `/run`    | 手动触发备份（实时回显进度）  |
+| `/help`   | 帮助信息            |
+
 
 ---
 
@@ -223,15 +226,15 @@ ALLOWED_CHAT_ID = 你的ID              # @userinfobot 获取
 ├── 📜 .gitignore              # Git 忽略规则
 ├── 📁 venv/                   # Python 虚拟环境 (install_bot.sh 创建)
 ├── 📄 backup_status.json      # 最近一次备份状态
-└── 📦 docker_backup_*.tar.gz  # 备份文件（本地只保留最新 1 份）
+└── � VPS_Backups/            # 本地备份存放目录
+    └── �📦 docker_backup_*.tar.gz  # 备份文件（本地只保留最新 1 份）
 ```
 
 ---
 
 ## 🗑️ 七、完全卸载
 
-<details>
-<summary><b>🤖 卸载 Telegram Bot</b></summary>
+**🤖 卸载 Telegram Bot**
 
 ```bash
 systemctl stop tg_bot
@@ -240,36 +243,23 @@ rm -f /etc/systemd/system/tg_bot.service
 systemctl daemon-reload
 ```
 
-</details>
-
-<details>
-<summary><b>⏰ 删除定时任务</b></summary>
+**⏰ 删除定时任务**
 
 ```bash
 crontab -l | grep -v '/root/bf/bf.sh' | crontab -
 ```
 
-</details>
-
-<details>
-<summary><b>📂 删除所有项目文件</b></summary>
+**📂 删除所有项目文件**
 
 ```bash
 rm -rf /root/bf
 ```
 
-</details>
-
-<details>
-<summary><b>📋 删除备份日志</b></summary>
+**📋 删除备份日志**
 
 ```bash
 rm -f /var/log/docker_backup.log
 ```
-
-</details>
-
-<br>
 
 > ⚡ **一键卸载（复制整段到终端执行）**
 
@@ -298,10 +288,7 @@ chmod +x *.sh
 
 ## ❓ 九、常见问题
 
-<br>
-
-<details>
-<summary><b>🌐 Q: git clone 失败（国内服务器）？</b></summary>
+**🌐 Q: git clone 失败（国内服务器）？**
 
 ```bash
 # 方式一：使用代理
@@ -313,12 +300,7 @@ git clone https://github.com/Agff45/vps_docker-bf.git bf
 git clone https://ghproxy.com/https://github.com/Agff45/vps_docker-bf.git bf
 ```
 
-</details>
-
-<br>
-
-<details>
-<summary><b>📝 Q: 脚本报 syntax error？</b></summary>
+**📝 Q: 脚本报 syntax error？**
 
 ```bash
 sed -i 's/\r$//' /root/bf/*.sh
@@ -326,23 +308,13 @@ sed -i 's/\r$//' /root/bf/*.sh
 
 > 原因：Windows 换行符 `\r\n` 与 Linux 不兼容。
 
-</details>
-
-<br>
-
-<details>
-<summary><b>📦 Q: 备份时提示缺少依赖？</b></summary>
+**📦 Q: 备份时提示缺少依赖？**
 
 ```bash
 apt install -y jq tar gzip curl rclone
 ```
 
-</details>
-
-<br>
-
-<details>
-<summary><b>☁️ Q: 网盘上传失败？</b></summary>
+**☁️ Q: 网盘上传失败？**
 
 确认 rclone remote 已正确配置：
 
@@ -353,12 +325,7 @@ rclone lsd gdrive:
 
 > 💡 如果不想用网盘，上传失败不影响本地备份。
 
-</details>
-
-<br>
-
-<details>
-<summary><b>🤖 Q: Bot 启动失败？</b></summary>
+**🤖 Q: Bot 启动失败？**
 
 ```bash
 journalctl -u tg_bot -n 50      # 查看错误日志
@@ -367,12 +334,7 @@ systemctl restart tg_bot         # 重试启动
 
 > 常见原因：`Token 错误`、`网络不通`、`Python 依赖未安装`。
 
-</details>
-
-<br>
-
-<details>
-<summary><b>🐳 Q: 恢复时容器启动失败？</b></summary>
+**🐳 Q: 恢复时容器启动失败？**
 
 一般为镜像未拉取，手动 pull 后重试：
 
@@ -381,12 +343,6 @@ docker pull <镜像名>
 ./restore.sh <备份文件>
 ```
 
-</details>
-
 ---
 
-<br>
-
-<p align="center">
-  <sub>Made with ❤️ for VPS & Docker users</sub>
-</p>
+Made with ❤️ for VPS & Docker users

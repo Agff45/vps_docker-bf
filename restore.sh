@@ -7,7 +7,7 @@
 set -e
 
 BACKUP_FILE="$1"
-[ -z "$BACKUP_FILE" ] && { echo "用法: $0 <备份文件.tar.gz>"; echo "示例: $0 /root/bf/docker_backup_20260502_120000.tar.gz"; exit 1; }
+[ -z "$BACKUP_FILE" ] && { echo "用法: $0 <备份文件.tar.gz>"; echo "示例: $0 /root/bf/VPS_Backups/docker_backup_20260502_120000.tar.gz"; exit 1; }
 [ ! -f "$BACKUP_FILE" ] && { echo "❌ 文件不存在: $BACKUP_FILE"; exit 1; }
 
 echo "📦 Docker 备份恢复工具"
