@@ -1,14 +1,18 @@
-![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Debian%20%7C%20Ubuntu%20%7C%20CentOS-blue?style=for-the-badge&logo=linux&logoColor=white)
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-Linux%20%7C%20Debian%20%7C%20Ubuntu%20%7C%20CentOS-blue?style=for-the-badge&logo=linux&logoColor=white" alt="Platform">
+  <img src="https://img.shields.io/badge/Made%20with-Bash-4EAA25?style=for-the-badge&logo=gnubash&logoColor=white" alt="Bash">
+  <img src="https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge" alt="License">
+</p>
 
-![Bash](https://img.shields.io/badge/Made%20with-Bash-4EAA25?style=for-the-badge&logo=gnubash&logoColor=white)
+<br>
 
-![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white)
+<p align="center">
+  <h1 align="center">🐳 Docker 备份系统</h1>
+  <p align="center"><i>一键备份 · 双网盘上传 · Telegram 远程管理</i></p>
+</p>
 
-![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
-
-# 🐳 Docker 备份系统
-
-*一键备份 · 双网盘上传 · Telegram 远程管理*
+<br>
 
 ---
 
@@ -61,16 +65,17 @@ apt update && apt install -y jq tar gzip curl
 
 ### ☁️ 3. 配置 rclone 网盘 (可选)
 
-> 🚨 **重要：rclone 挂载名必须是 `onedrive` 和 `gdrive**`  
+> 🚨 **重要：rclone 挂载名必须是 `onedrive` 和 `gdrive`**  
 > 脚本通过 remote 名称来识别网盘，请严格按照下面的命令创建，**不要随意改名**，否则网盘上传会失败。
 
-**📂 展开查看 rclone 配置步骤**
+<details>
+<summary><b>📂 展开查看 rclone 配置步骤</b></summary>
 
 ```bash
 # 安装 rclone
 curl https://rclone.org/install.sh | bash
 
-# 挂载onedrive和gdrive
+# 配置 remote（挂载名必须是 onedrive和gdrive）
 rclone config 
 
 # 验证配置
@@ -78,11 +83,19 @@ rclone lsd onedrive:
 rclone lsd gdrive:
 ```
 
+</details>
+
  
 
 > 💡 **提示：** 如果不想用网盘，跳过此步骤即可。备份会保存在 `VPS_Backups/` 目录，网盘上传步骤会显示失败，不影响本地备份。
 
 ### 🤖 4. 修改 Telegram 配置
+
+> 💡 **两个配置项的区别：**
+> - `TG_BOT_TOKEN` / `BOT_TOKEN` — 你的 **Telegram 机器人的 Token**，由 [@BotFather](https://t.me/BotFather) 发放，格式类似 `123456:ABC-DEF1234gh...`
+> - `TG_CHAT_ID` / `ALLOWED_CHAT_ID` — 你的 **Telegram 个人账户的数字 ID**，由 [@userinfobot](https://t.me/userinfobot) 查询，格式类似 `123456789`
+>
+> 两者缺一不可：Bot Token 让脚本能操控机器人，Chat ID 确保只有你本人可以给机器人发命令。
 
 #### 📝 编辑 `bf.sh`
 
@@ -93,8 +106,8 @@ nano /root/bf/bf.sh
 修改第 22-23 行：
 
 ```bash
-TG_BOT_TOKEN="你的BotToken"       # @BotFather 获取
-TG_CHAT_ID="你的ChatID"           # @userinfobot 获取
+TG_BOT_TOKEN="你的BotToken"       # 机器人的Token，找 @BotFather 获取
+TG_CHAT_ID="你的ChatID"           # 你个人账户的数字ID，找 @userinfobot 查询
 TG_ENABLED=true                   # 不需要通知就改 false
 ```
 
@@ -107,8 +120,8 @@ nano /root/bf/tg_bot.py
 修改第 16-17 行：
 
 ```python
-BOT_TOKEN = "你的BotToken"
-ALLOWED_CHAT_ID = 你的ChatID
+BOT_TOKEN = "你的BotToken"        # 机器人的Token，找 @BotFather 获取
+ALLOWED_CHAT_ID = 你的ChatID      # 你个人账户的数字ID，找 @userinfobot 查询
 ```
 
 > ⚠️ **注意：** 如果不想用 Telegram 通知和 Bot，把 `TG_ENABLED` 设为 `false`，并且不要运行 `install_bot.sh`。
@@ -194,8 +207,8 @@ TG_ENABLED=true                       # 是否启用 Telegram 通知
 ### `tg_bot.py` 配置项
 
 ```python
-BOT_TOKEN = "你的Token"               # @BotFather 获取
-ALLOWED_CHAT_ID = 你的ID              # @userinfobot 获取
+BOT_TOKEN = "你的Token"               # 机器人的Token，找 @BotFather 获取
+ALLOWED_CHAT_ID = 你的ID              # 你个人账户的数字ID，找 @userinfobot 查询
 ```
 
 ---
@@ -226,15 +239,16 @@ ALLOWED_CHAT_ID = 你的ID              # @userinfobot 获取
 ├── 📜 .gitignore              # Git 忽略规则
 ├── 📁 venv/                   # Python 虚拟环境 (install_bot.sh 创建)
 ├── 📄 backup_status.json      # 最近一次备份状态
-└── � VPS_Backups/            # 本地备份存放目录
-    └── �📦 docker_backup_*.tar.gz  # 备份文件（本地只保留最新 1 份）
+└── 📁 VPS_Backups/            # 本地备份存放目录
+    └── 📦 docker_backup_*.tar.gz  # 备份文件（本地只保留最新 1 份）
 ```
 
 ---
 
 ## 🗑️ 七、完全卸载
 
-**🤖 卸载 Telegram Bot**
+<details>
+<summary><b>🤖 卸载 Telegram Bot</b></summary>
 
 ```bash
 systemctl stop tg_bot
@@ -243,23 +257,36 @@ rm -f /etc/systemd/system/tg_bot.service
 systemctl daemon-reload
 ```
 
-**⏰ 删除定时任务**
+</details>
+
+<details>
+<summary><b>⏰ 删除定时任务</b></summary>
 
 ```bash
 crontab -l | grep -v '/root/bf/bf.sh' | crontab -
 ```
 
-**📂 删除所有项目文件**
+</details>
+
+<details>
+<summary><b>📂 删除所有项目文件</b></summary>
 
 ```bash
 rm -rf /root/bf
 ```
 
-**📋 删除备份日志**
+</details>
+
+<details>
+<summary><b>📋 删除备份日志</b></summary>
 
 ```bash
 rm -f /var/log/docker_backup.log
 ```
+
+</details>
+
+<br>
 
 > ⚡ **一键卸载（复制整段到终端执行）**
 
@@ -288,7 +315,8 @@ chmod +x *.sh
 
 ## ❓ 九、常见问题
 
-**🌐 Q: git clone 失败（国内服务器）？**
+<details>
+<summary><b>🌐 Q: git clone 失败（国内服务器）？</b></summary>
 
 ```bash
 # 方式一：使用代理
@@ -300,7 +328,12 @@ git clone https://github.com/Agff45/vps_docker-bf.git bf
 git clone https://ghproxy.com/https://github.com/Agff45/vps_docker-bf.git bf
 ```
 
-**📝 Q: 脚本报 syntax error？**
+</details>
+
+<br>
+
+<details>
+<summary><b>📝 Q: 脚本报 syntax error？</b></summary>
 
 ```bash
 sed -i 's/\r$//' /root/bf/*.sh
@@ -308,13 +341,23 @@ sed -i 's/\r$//' /root/bf/*.sh
 
 > 原因：Windows 换行符 `\r\n` 与 Linux 不兼容。
 
-**📦 Q: 备份时提示缺少依赖？**
+</details>
+
+<br>
+
+<details>
+<summary><b>📦 Q: 备份时提示缺少依赖？</b></summary>
 
 ```bash
 apt install -y jq tar gzip curl rclone
 ```
 
-**☁️ Q: 网盘上传失败？**
+</details>
+
+<br>
+
+<details>
+<summary><b>☁️ Q: 网盘上传失败？</b></summary>
 
 确认 rclone remote 已正确配置：
 
@@ -325,7 +368,12 @@ rclone lsd gdrive:
 
 > 💡 如果不想用网盘，上传失败不影响本地备份。
 
-**🤖 Q: Bot 启动失败？**
+</details>
+
+<br>
+
+<details>
+<summary><b>🤖 Q: Bot 启动失败？</b></summary>
 
 ```bash
 journalctl -u tg_bot -n 50      # 查看错误日志
@@ -334,7 +382,12 @@ systemctl restart tg_bot         # 重试启动
 
 > 常见原因：`Token 错误`、`网络不通`、`Python 依赖未安装`。
 
-**🐳 Q: 恢复时容器启动失败？**
+</details>
+
+<br>
+
+<details>
+<summary><b>🐳 Q: 恢复时容器启动失败？</b></summary>
 
 一般为镜像未拉取，手动 pull 后重试：
 
@@ -342,6 +395,8 @@ systemctl restart tg_bot         # 重试启动
 docker pull <镜像名>
 ./restore.sh <备份文件>
 ```
+
+</details>
 
 ---
 
