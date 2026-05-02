@@ -112,6 +112,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 • Compose: {s.get('containers_compose', 'N/A')} 个
 • 普通: {s.get('containers_normal', 'N/A')} 个
 • 跳过: {s.get('containers_skipped', 'N/A')} 个
+🗄️ <b>数据库导出:</b> {s.get('db_count', '0')} 个
 
 ☁️ <b>网盘上传:</b>
 • {s.get('remote1_name', 'onedrive')}: {r1}
@@ -200,6 +201,7 @@ async def run_backup(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 • Compose: {s.get('containers_compose', '0')} 个
 • 普通: {s.get('containers_normal', '0')} 个
 • 跳过: {s.get('containers_skipped', '0')} 个
+🗄️ <b>数据库导出:</b> {s.get('db_count', '0')} 个
 
 ☁️ <b>上传状态:</b>
 • {s.get('remote1_name', 'onedrive')}: {r1}

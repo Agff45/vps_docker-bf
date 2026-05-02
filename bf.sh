@@ -26,9 +26,19 @@ TG_ENABLED=true
 # --- 状态文件路径 ---
 STATUS_FILE="/root/bf/backup_status.json"
 
+# --- 数据库专用导出 ---
+DB_DUMP_ENABLED=true
+
+# --- 备份加密 (GPG 对称加密) ---
+ENCRYPT_ENABLED=false
+ENCRYPT_PASSPHRASE=""   # 留空则从 ENCRYPT_PASSPHRASE_FILE 读取
+
 # --- rclone 配置 (解决 cron 环境问题) ---
 export RCLONE_CONFIG="/root/.config/rclone/rclone.conf"
 # ===========================================
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+source "${SCRIPT_DIR}/db_dump.sh"
 
 DATE_STR=$(date "+%Y%m%d_%H%M%S")
 BACKUP_FILE="docker_backup_$DATE_STR.tar.gz"
@@ -41,6 +51,8 @@ TOTAL_CONTAINERS=0
 COMPOSE_COUNT=0
 NORMAL_COUNT=0
 SKIPPED_COUNT=0
+DB_COUNT=0
+declare -A DB_PROCESSED
 
 send_telegram() {
     local message="$1"
@@ -63,6 +75,7 @@ save_status() {
     local compose="$8"
     local normal="$9"
     local skipped="${10}"
+    local db_count="${11}"
     
     cat > "$STATUS_FILE" << EOF
 {
@@ -76,6 +89,7 @@ save_status() {
     "containers_compose": "$compose",
     "containers_normal": "$normal",
     "containers_skipped": "$skipped",
+    "db_count": "$db_count",
     "remote1_name": "onedrive",
     "remote1_status": "$remote1_status",
     "remote2_name": "$REMOTE2_NAME",
@@ -149,6 +163,23 @@ backup_docker() {
 
     mkdir -p "$DOCKER_BACKUP_WORK"
 
+    # ---- 数据库自动检测与专用导出 ----
+    if [ "$DB_DUMP_ENABLED" = true ]; then
+        local db_result
+        db_result=$(process_all_databases "$DOCKER_BACKUP_WORK")
+        DB_COUNT=$(echo "$db_result" | tail -1)
+        # 读取已处理的数据库容器列表
+        if [ -d "${DOCKER_BACKUP_WORK}/db_processed" ]; then
+            for db_file in "${DOCKER_BACKUP_WORK}/db_processed"/*; do
+                [ -f "$db_file" ] || continue
+                local c_name
+                c_name=$(basename "$db_file")
+                DB_PROCESSED["$c_name"]=1
+            done
+        fi
+    fi
+    # ------------------------------------
+
     local RESTORE_SCRIPT="${DOCKER_BACKUP_WORK}/docker_restore.sh"
     echo "#!/bin/bash" > "$RESTORE_SCRIPT"
     echo "set -e" >> "$RESTORE_SCRIPT"
@@ -202,6 +233,49 @@ backup_docker() {
 
             rm -f "$inspect_file"
         else
+            # 检查是否已被数据库模块处理
+            if [ -n "${DB_PROCESSED[$c]}" ]; then
+                echo "   🗄️ 数据库容器 [$c] 已通过专用导出处理，跳过卷打包"
+
+                local IMAGE
+                IMAGE=$(jq -r '.[0].Config.Image' "$inspect_file" 2>/dev/null)
+
+                local PORT_ARGS=""
+                mapfile -t PORTS < <(jq -r '.[0].HostConfig.PortBindings | to_entries[]? | "\(.value[0].HostPort):\(.key)"' "$inspect_file" 2>/dev/null)
+                for p in "${PORTS[@]}"; do PORT_ARGS+="-p $p "; done
+
+                local ENV_VARS=""
+                mapfile -t ENVS < <(jq -r '.[0].Config.Env[] | @sh' "$inspect_file" 2>/dev/null)
+                for e in "${ENVS[@]}"; do ENV_VARS+="-e $e "; done
+
+                local VOL_ARGS=""
+                mapfile -t VOL_MOUNTS < <(jq -r '.[0].Mounts[]? | "\(.Source):\(.Destination)"' "$inspect_file" 2>/dev/null)
+                for vm in "${VOL_MOUNTS[@]}"; do VOL_ARGS+="-v $vm "; done
+
+                local NETWORK_MODE
+                NETWORK_MODE=$(jq -r '.[0].HostConfig.NetworkMode // "default"' "$inspect_file" 2>/dev/null)
+                local NETWORK_ARG=""
+                if [ "$NETWORK_MODE" != "default" ] && [ "$NETWORK_MODE" != "bridge" ] && [ -n "$NETWORK_MODE" ] && [ "$NETWORK_MODE" != "null" ]; then
+                    NETWORK_ARG="--network $NETWORK_MODE"
+                fi
+
+                local RESTART_POLICY
+                RESTART_POLICY=$(jq -r '.[0].HostConfig.RestartPolicy.Name // "no"' "$inspect_file" 2>/dev/null)
+                local RESTART_ARG=""
+                if [ "$RESTART_POLICY" != "no" ] && [ "$RESTART_POLICY" != "null" ] && [ -n "$RESTART_POLICY" ]; then
+                    RESTART_ARG="--restart $RESTART_POLICY"
+                fi
+
+                echo "" >> "$RESTORE_SCRIPT"
+                echo "# 还原数据库容器: $c" >> "$RESTORE_SCRIPT"
+                echo "docker run -d --name $c $RESTART_ARG $NETWORK_ARG $PORT_ARGS $VOL_ARGS $ENV_VARS $IMAGE" >> "$RESTORE_SCRIPT"
+                echo "# ⚠️ 数据库 [$c] 启动后，请使用 restore.sh 或手动导入 dump 文件" >> "$RESTORE_SCRIPT"
+
+                NORMAL_COUNT=$((NORMAL_COUNT + 1))
+                echo "   ✅ 数据库容器 [$c] 已记录，镜像: $IMAGE"
+                continue
+            fi
+
             echo "   📦 普通容器，导出卷数据与运行参数..."
 
             local VOL_PATHS
@@ -215,7 +289,7 @@ backup_docker() {
             done
 
             local PORT_ARGS=""
-            mapfile -t PORTS < <(jq -r '.[0].HostConfig.PortBindings | to_entries[]? | "\(.value[0].HostPort):\(.key | split("/")[0])"' "$inspect_file" 2>/dev/null)
+            mapfile -t PORTS < <(jq -r '.[0].HostConfig.PortBindings | to_entries[]? | "\(.value[0].HostPort):\(.key)"' "$inspect_file" 2>/dev/null)
             for p in "${PORTS[@]}"; do PORT_ARGS+="-p $p "; done
 
             local ENV_VARS=""
@@ -267,7 +341,7 @@ backup_docker() {
     echo "   ✅ 还原脚本已生成: $RESTORE_SCRIPT"
 
     echo ""
-    echo "📊 备份统计: 总计 $TOTAL_CONTAINERS 个容器 | Compose: $COMPOSE_COUNT | 普通: $NORMAL_COUNT | 跳过: $SKIPPED_COUNT"
+    echo "📊 备份统计: 总计 $TOTAL_CONTAINERS 个容器 | Compose: $COMPOSE_COUNT | 普通: $NORMAL_COUNT | 跳过: $SKIPPED_COUNT | DB导出: $DB_COUNT"
 
     return 0
 }
@@ -306,7 +380,7 @@ if [ $BACKUP_RESULT -eq 2 ]; then
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
 
-    save_status "skipped" "无运行中的容器" "0" "$DURATION" "skipped" "skipped" "0" "0" "0" "0"
+    save_status "skipped" "无运行中的容器" "0" "$DURATION" "skipped" "skipped" "0" "0" "0" "0" "$DB_COUNT"
 
     TG_MSG="⚪ <b>Docker 备份跳过</b>
 
@@ -330,13 +404,13 @@ if [ $? -ne 0 ] || [ ! -s "$FULL_PATH" ]; then
     END_TIME=$(date +%s)
     DURATION=$((END_TIME - START_TIME))
 
-    save_status "failed" "打包失败" "0" "$DURATION" "skipped" "skipped" "$TOTAL_CONTAINERS" "$COMPOSE_COUNT" "$NORMAL_COUNT" "$SKIPPED_COUNT"
+    save_status "failed" "打包失败" "0" "$DURATION" "skipped" "skipped" "$TOTAL_CONTAINERS" "$COMPOSE_COUNT" "$NORMAL_COUNT" "$SKIPPED_COUNT" "$DB_COUNT"
 
     TG_MSG="❌ <b>Docker 备份失败</b>
 
 📅 时间: $(date '+%Y-%m-%d %H:%M:%S')
 🚫 原因: 打包成 tar.gz 失败
-📊 统计: 总计 $TOTAL_CONTAINERS | Compose: $COMPOSE_COUNT | 普通: $NORMAL_COUNT | 跳过: $SKIPPED_COUNT"
+📊 统计: 总计 $TOTAL_CONTAINERS | Compose: $COMPOSE_COUNT | 普通: $NORMAL_COUNT | 跳过: $SKIPPED_COUNT | DB导出: $DB_COUNT"
 
     send_telegram "$TG_MSG"
     exit 1
@@ -345,15 +419,44 @@ fi
 FILE_SIZE=$(du -h "$FULL_PATH" | cut -f1)
 echo "   ✅ 打包完成: $FULL_PATH ($FILE_SIZE)"
 
+# ---- GPG 加密 (可选) ----
+UPLOAD_PATH="$FULL_PATH"
+if [ "$ENCRYPT_ENABLED" = true ]; then
+    passphrase="$ENCRYPT_PASSPHRASE"
+    echo "🔐 正在加密备份文件..."
+
+    if command -v gpg &>/dev/null; then
+        if [ -z "$passphrase" ]; then
+            echo "   ⚠️ 未设置 ENCRYPT_PASSPHRASE，跳过加密"
+
+        elif [ -n "$passphrase" ]; then
+            gpg --batch --yes --passphrase "$passphrase" --symmetric --cipher-algo AES256 "$FULL_PATH" 2>/dev/null
+        fi
+
+        if [ $? -eq 0 ] && [ -f "${FULL_PATH}.gpg" ]; then
+            rm -f "$FULL_PATH"
+            UPLOAD_PATH="${FULL_PATH}.gpg"
+            BACKUP_FILE="${BACKUP_FILE}.gpg"
+            FILE_SIZE=$(du -h "$UPLOAD_PATH" | cut -f1)
+            echo "   ✅ 加密完成: $UPLOAD_PATH ($FILE_SIZE)"
+        else
+            echo "   ⚠️ GPG 加密失败，使用未加密文件"
+        fi
+    else
+        echo "   ⚠️ 未安装 gpg，请执行: apt install -y gnupg"
+    fi
+fi
+# -----------------------
+
 rm -rf "$DOCKER_BACKUP_WORK"
 
-if process_remote "$REMOTE1_NAME" "$REMOTE1_DIR" "$FULL_PATH"; then
+if process_remote "$REMOTE1_NAME" "$REMOTE1_DIR" "$UPLOAD_PATH"; then
     REMOTE1_STATUS="success"
 else
     REMOTE1_STATUS="failed"
 fi
 
-if process_remote "$REMOTE2_NAME" "$REMOTE2_DIR" "$FULL_PATH"; then
+if process_remote "$REMOTE2_NAME" "$REMOTE2_DIR" "$UPLOAD_PATH"; then
     REMOTE2_STATUS="success"
 else
     REMOTE2_STATUS="failed"
@@ -361,7 +464,7 @@ fi
 
 echo "---------------------------------"
 echo "🧹 清理本地旧备份..."
-OLD_LOCAL=$(ls -1t "$BACKUP_DIR"/docker_backup_*.tar.gz 2>/dev/null | tail -n +$(($LOCAL_KEEP_COUNT + 1)))
+OLD_LOCAL=$(ls -1t "$BACKUP_DIR"/docker_backup_*.tar.gz "$BACKUP_DIR"/docker_backup_*.tar.gz.gpg 2>/dev/null | tail -n +$(($LOCAL_KEEP_COUNT + 1)))
 if [ -n "$OLD_LOCAL" ]; then
     echo "$OLD_LOCAL" | while read old_file; do
         echo "   🗑️ 删除旧备份: $(basename "$old_file")"
@@ -376,7 +479,7 @@ DURATION=$((END_TIME - START_TIME))
 DURATION_MIN=$((DURATION / 60))
 DURATION_SEC=$((DURATION % 60))
 
-save_status "success" "备份完成" "$FILE_SIZE" "$DURATION" "$REMOTE1_STATUS" "$REMOTE2_STATUS" "$TOTAL_CONTAINERS" "$COMPOSE_COUNT" "$NORMAL_COUNT" "$SKIPPED_COUNT"
+save_status "success" "备份完成" "$FILE_SIZE" "$DURATION" "$REMOTE1_STATUS" "$REMOTE2_STATUS" "$TOTAL_CONTAINERS" "$COMPOSE_COUNT" "$NORMAL_COUNT" "$SKIPPED_COUNT" "$DB_COUNT"
 
 TG_MSG="🎉 <b>Docker 备份完成</b>
 
@@ -390,6 +493,7 @@ TG_MSG="🎉 <b>Docker 备份完成</b>
 • Compose: $COMPOSE_COUNT 个
 • 普通: $NORMAL_COUNT 个
 • 跳过: $SKIPPED_COUNT 个
+🗄️ <b>数据库导出:</b> $DB_COUNT 个
 
 ☁️ <b>上传状态:</b>
 • onedrive (rclone): $([ "$REMOTE1_STATUS" = "success" ] && echo "✅ 成功" || echo "❌ 失败")

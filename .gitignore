@@ -1,2 +1,4 @@
 docker_backup_work_*/
 docker_backup_*.tar.gz
+docker_backup_*.tar.gz.gpg
+VPS_Backups/
